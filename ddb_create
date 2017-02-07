@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import os.path as osp
+
+from directory_database import DirectoryContent
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Record recurisvely the path names and status contained in a directory in a SQlite database file. This file can later be used to inspect the recorded state of the directory.')
+parser.add_argument(dest='directory', help='directory to read')
+parser.add_argument(dest='ddb', help='SQLite file to create or update')
+parser.add_argument('-e', '--exclude', dest='exclude', action='append', help='pattern of path to exclude from the database')
+parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='display information on standard output during long running directory parsing')
+options = parser.parse_args()
+
+
+directory = osp.normpath(osp.abspath(options.directory))
+ddb = osp.normpath(osp.abspath(options.ddb))
+verbose = (sys.stdout if options.verbose else None)
+exclude = options.exclude or None
+
+if osp.exists(ddb):
+    raise ValueError('%s already exists' % ddb)
+
+dc = DirectoryContent(directory, ddb)
+dc.read_local_path(verbose=verbose, exclude=exclude)

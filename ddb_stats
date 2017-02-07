@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+
+import sys
+import os.path as osp
+import argparse
+import stat
+import pwd
+
+from directory_database import DirectoryContent
+
+
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.2f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.2f %s%s" % (num, 'Yi', suffix)
+
+known_uid = {}
+
+def user_name(uid):
+    r = known_uid.get(uid)
+    if r:
+        return r
+    try:
+        p = pwd.getpwuid(uid)
+    except KeyError:
+        return 'Unknown (uid = %s)' % uid
+    return p.pw_gecos
+
+parser = argparse.ArgumentParser(description='Compute and print some statistics from a recorded database')
+parser.add_argument(dest='db', help='Database containing paths information')
+parser.add_argument('-d', '--directory', dest='directory', default=None, help='Restric statistics to a subdirectory (relative path required)')
+parser.add_argument('-u', '--users', dest='show_users', action='store_true', help='Show statistics grouped by users')
+parser.add_argument('-m', '--months', dest='show_months', action='store_true', help='Show statistics grouped by month of last modification time')
+parser.add_argument('-s', '--subdirectories', dest='subdirectories', action='store_true', help='Show statistics about subdirectories (one level only)')
+options = parser.parse_args()
+
+global_selection = dict(in_dir=options.directory)
+
+dc = DirectoryContent(db=options.db)
+
+if options.subdirectories:
+    if options.directory:
+        directories = [osp.join(options.directory, subdir) for subdir in dc.listdir(options.directory, is_dir=True)] + [options.directory]
+    else:
+        directories = [subdir for subdir in dc.listdir('', is_dir=True)] + [options.directory]
+else:
+    directories = [options.directory]
+
+for dir in directories:
+    print dir or 'Total', ':'
+    sys.stdout.flush()
+    if options.show_months:
+        for month, size in dc.size_sum_by_month(is_dir=False, in_dir=dir):
+            print '    %s -> %s' % (month, sizeof_fmt(size))
+            sys.stdout.flush()
+    if options.show_users:
+        for uid, size in dc.size_sum_by_uid(is_dir=False, in_dir=dir):
+            print '    %s -> %s' % (user_name(uid), sizeof_fmt(size))
+            sys.stdout.flush()
+    print '    Total files = %d' % dc.paths_count(is_dir=False, in_dir=dir)
+    sys.stdout.flush()
+    print '    Total directories = %d' % dc.paths_count(is_dir=True, in_dir=dir)
+    sys.stdout.flush()
+    print '    Total files size = %s' % sizeof_fmt(dc.size_sum(in_dir=dir))
+    sys.stdout.flush()
+
+#sql = "SELECT strftime('%%Y-%%m', st_mtime, 'unixepoch') as month, SUM(st_size) FROM paths WHERE %s GROUP BY month ORDER BY month" % sql_select(is_dir = False)
+#sql = "SELECT st_uid as month, SUM(st_size) FROM paths WHERE %s GROUP BY st_uid" % sql_select(is_dir = False)
+#print sql
+#print db.execute(sql).fetchall()

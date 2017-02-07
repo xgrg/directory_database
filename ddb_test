@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import os.path as osp
+#from directory_database import size_to_human
+import glob
+import sqlite3
+
+directory = sys.argv[1]
+sqlites = sorted(glob.glob(osp.join(directory,'*.sqlite')))
+
+#print 'Read logins'
+#logins = {}
+#for sqlite in sqlites:
+    #db = sqlite3.connect(sqlite)
+    #logins.update(dict((i[0], i[1:]) for i in db.execute('select * from logins')))
+#for k, v in logins.items():
+    #print '%d\t%s\t%s' % ( k, v[0] or '', v[1] or '')
+
+#print
+#print 'Read stats per user'
+#stat_per_uid = {}
+#for sqlite in sqlites:
+    #db = sqlite3.connect(sqlite)
+    #dir = sqlite[:-7]
+    #print ' ', dir
+    #for row in db.execute('SELECT st_uid, count(path), sum(st_size) FROM paths GROUP BY st_uid'):
+        #uid = row[0]
+        #c, s = stat_per_uid.get(uid,(0,0))
+        #c += row[1]
+        #s += row[2]
+        #stat_per_uid[uid] = (c, s)
+#for uid in logins:
+    #print '%d\t%d' % stat_per_uid.get(uid,(0,0))
+
+print
+print 'Read stats per directory'
+for sqlite in sqlites:
+    db = sqlite3.connect(sqlite)
+    dir = osp.basename(sqlite)[:-7]
+    row = db.execute('SELECT count(path), sum(st_size) FROM paths').fetchone()
+    print '%s\t%d\t%d' % ((dir,) + row)
+
+#files = directories = bytes = 0
+#for sqlite in os.listdir(directory):
+    #if not log.endswith('.sqlite'):
+        #continue
+    #line = [i.strip() for i in open(osp.join(directory,log)).read().split('\n') if i.strip()]
+    #if line:
+        #l = line[-1].split()
+        #files += int(l[6])
+        #directories += int(l[9])
+        #bytes += int(l[-1][1:-1] if l[-1].startswith('(') else int(l[-1]))
+        ##print line, files, directories, bytes
+
+#print files, 'files'
+#print directories, 'directories'
+#print 'Size =', size_to_human(bytes)

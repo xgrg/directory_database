@@ -1,0 +1,50 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import os.path as osp
+import subprocess
+import argparse
+
+from directory_database import DirectoryContent
+
+wd = '/media/Temporary'
+parser = argparse.ArgumentParser(description='Put all of %s into databases'%wd)
+parser.add_argument(dest='directory', help='Directory where databases and log will be written')
+parser.add_argument('-m', '--merge', dest='merge', help='Merge databases created in parallel')
+options = parser.parse_args()
+
+directory = osp.normpath(osp.abspath(options.directory))
+
+
+def parse_main_directory():
+    popens = []
+    for dir in os.listdir(wd):
+        fp = osp.join(wd,dir)
+        if not osp.isdir(fp):
+            continue
+        log = open(osp.join(directory, dir + '.log'),'w')
+        sqlite = osp.join(directory, dir + '.sqlite')
+        cmd = ['./ddb_create', '-v', fp, sqlite]
+        print 'Starting', ' '.join(cmd)
+        print >> log, ' '.join(cmd)
+        print >> log, '-'*40
+        p = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
+        popens.append(p)
+        print '-->', p.pid
+        sys.stdout.flush()
+
+    for p in popens:
+        print 'Waiting for', p.pid
+        sys.stdout.flush()
+        p.wait()
+
+
+def merge_databases():
+    dc = DirectoryContent(path=wd, db=options.merge)
+    dc.import_from_parallel_parsing(directory, verbose=sys.stdout)
+
+if options.merge:
+    merge_databases()
+else:
+    parse_neurospin_cati()

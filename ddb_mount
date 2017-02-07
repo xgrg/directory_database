@@ -1,0 +1,149 @@
+#!/usr/bin/env python
+
+from __future__ import with_statement
+
+import os
+import os.path as osp
+import errno
+from fuse import FUSE, FuseOSError, Operations, ENOENT
+
+from directory_database import DirectoryContent, stat_attributes
+
+import logging
+from fuse import FUSE, LoggingMixIn
+
+logger = logging.getLogger('fuse.log-mixin')
+logger.setLevel(logging.DEBUG)
+logger.addHandler( logging.StreamHandler())
+
+#class FuseDirectoryContent(LoggingMixIn, Operations):
+class FuseDirectoryContent(Operations):
+    def __init__(self, directory_content):
+        self.dc = directory_content
+
+
+    # Filesystem methods
+    # ==================
+
+    #def access(self, path, mode):
+        #full_path = self._full_path(path)
+        #if not os.access(full_path, mode):
+            #raise FuseOSError(errno.EACCES)
+
+    #def chmod(self, path, mode):
+        #full_path = self._full_path(path)
+        #return os.chmod(full_path, mode)
+
+    #def chown(self, path, uid, gid):
+        #full_path = self._full_path(path)
+        #return os.chown(full_path, uid, gid)
+
+    def getattr(self, path, fh=None):
+        path = path[1:]
+        st = self.dc.lstat(path)
+        if st is not None:
+            return dict((k_i[1], st[k_i[0]]) for k_i in enumerate(stat_attributes))
+        raise FuseOSError(ENOENT)
+
+    #def opendir(self, path):
+        #return 0
+    
+    def readdir(self, path, fh):
+        path = path[1:]
+        parent_rowid = self.dc._db.execute('SELECT rowid FROM paths WHERE path = ?', [path]).fetchone()
+        if parent_rowid is None:
+            raise FuseOSError(ENOENT)
+        parent_rowid = parent_rowid[0]
+        yield '.'
+        yield '..'
+        for basename in self.dc.listdir(parent_rowid):
+            if basename:
+                yield basename
+
+    #def readlink(self, path):
+        #pathname = os.readlink(self._full_path(path))
+        #if pathname.startswith("/"):
+            ## Path name is absolute, sanitize it.
+            #return os.path.relpath(pathname, self.root)
+        #else:
+            #return pathname
+
+    #def mknod(self, path, mode, dev):
+        #return os.mknod(self._full_path(path), mode, dev)
+
+    #def rmdir(self, path):
+        #full_path = self._full_path(path)
+        #return os.rmdir(full_path)
+
+    #def mkdir(self, path, mode):
+        #return os.mkdir(self._full_path(path), mode)
+
+    #def statfs(self, path):
+        #full_path = self._full_path(path)
+        #stv = os.statvfs(full_path)
+        #return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
+            #'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
+            #'f_frsize', 'f_namemax'))
+
+    #def unlink(self, path):
+        #return os.unlink(self._full_path(path))
+
+    #def symlink(self, target, name):
+        #return os.symlink(self._full_path(target), self._full_path(name))
+
+    #def rename(self, old, new):
+        #return os.rename(self._full_path(old), self._full_path(new))
+
+    #def link(self, target, name):
+        #return os.link(self._full_path(target), self._full_path(name))
+
+    #def utimens(self, path, times=None):
+        #return os.utime(self._full_path(path), times)
+
+    # File methods
+    # ============
+
+    #def open(self, path, flags):
+        #full_path = self._full_path(path)
+        #return os.open(full_path, flags)
+
+    #def create(self, path, mode, fi=None):
+        #full_path = self._full_path(path)
+        #return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
+
+    #def read(self, path, length, offset, fh):
+        #os.lseek(fh, offset, os.SEEK_SET)
+        #return os.read(fh, length)
+
+    #def write(self, path, buf, offset, fh):
+        #os.lseek(fh, offset, os.SEEK_SET)
+        #return os.write(fh, buf)
+
+    #def truncate(self, path, length, fh=None):
+        #full_path = self._full_path(path)
+        #with open(full_path, 'r+') as f:
+            #f.truncate(length)
+
+    #def flush(self, path, fh):
+        #return os.fsync(fh)
+
+    #def release(self, path, fh):
+        #return os.close(fh)
+
+    #def fsync(self, path, fdatasync, fh):
+        #return self.flush(path, fh)
+
+
+def main(sqlite, mountpoint):
+    dc = DirectoryContent(db=sqlite)
+    FUSE(FuseDirectoryContent(dc), mountpoint, foreground=True, default_permissions=True)
+
+if __name__ == '__main__':
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Mount a directory database created by ddb_create for using whith tools like baobab or filelight.')
+    parser.add_argument(dest='ddb', help='SQlite file created with ddb_create')
+    parser.add_argument(dest='mountpoint', help='Empty directory where the virtual file system will be mounted.')
+    options = parser.parse_args()
+
+    main(options.ddb, options.mountpoint)
