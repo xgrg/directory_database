@@ -47,7 +47,7 @@ class FuseDirectoryContent(Operations):
 
     #def opendir(self, path):
         #return 0
-    
+
     def readdir(self, path, fh):
         path = path[1:]
         parent_rowid = self.dc._db.execute('SELECT rowid FROM paths WHERE path = ?', [path]).fetchone()
@@ -136,11 +136,11 @@ class FuseDirectoryContent(Operations):
 
 def main(sqlite, mountpoint):
     dc = DirectoryContent(db=sqlite)
-    FUSE(FuseDirectoryContent(dc), mountpoint, foreground=True, default_permissions=True)
+    FUSE(FuseDirectoryContent(dc), mountpoint, foreground=True, default_permissions=True, allow_other=True )
 
 if __name__ == '__main__':
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='Mount a directory database created by ddb_create for using whith tools like baobab or filelight.')
     parser.add_argument(dest='ddb', help='SQlite file created with ddb_create')
     parser.add_argument(dest='mountpoint', help='Empty directory where the virtual file system will be mounted.')

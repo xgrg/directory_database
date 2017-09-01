@@ -29,8 +29,8 @@ def size_to_human(full_size):
   else:
     return str(size)
 
-stat_attributes = ('st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime', 
-               'st_nlink', 'st_size', 'st_uid', 'st_blksize', 'st_blocks', 
+stat_attributes = ('st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime',
+               'st_nlink', 'st_size', 'st_uid', 'st_blksize', 'st_blocks',
                'st_dev','st_rdev', 'st_ino')
 
 def get_login_name(uid):
@@ -43,11 +43,11 @@ def get_login_name(uid):
 class DirectoryContent(object):
     # For long opertaions, write a message every minute in verbose mode
     time_between_verbose_messages = 60
-    
+
     dir_type = stat.S_IFDIR
     file_type = stat.S_IFREG
     symlink_type = stat.S_IFLNK
-    
+
     def __init__(self, path=None, db=':memory:'):
         if path:
             self.path = unicode(osp.normpath(osp.abspath(path)))
@@ -165,28 +165,30 @@ class DirectoryContent(object):
             select_dir = ''
         for row in self._db.execute('SELECT path FROM paths WHERE parent=?%s' % select_dir, [rowid]):
             yield osp.basename(row[0])
-    
+
     def _import_db(self, name, sqlite, verbose=None):
+        print name, sqlite
         root_rowid = self._db.execute('SELECT rowid FROM paths WHERE path = ""').fetchone()[0]
         db = sqlite3.connect(sqlite)
-        try:   
+        try:
             # Import logins
             for row in db.execute('SELECT * FROM logins'):
                 sql = 'INSERT OR REPLACE INTO logins VALUES (%s)' % ','.join('?' for i in xrange(len(row)))
                 self._db.execute(sql, row)
-            
+
             # Import errors
             for row in db.execute('SELECT * FROM errors'):
                 row = list(row)
                 row[0] = osp.join(name, row[0])
                 sql = 'INSERT INTO errors VALUES (%s)' % ','.join('?' for i in xrange(len(row)))
                 self._db.execute(sql, row)
-            
+
             # Import paths
             type_index = 1
             parent_index = 2
             rowid_map = {}
             for row in db.execute('SELECT rowid, * FROM paths ORDER BY rowid'):
+                print row
                 if row[1] == '':
                     dir_rowid = self._db.execute("SELECT rowid FROM paths WHERE path='%s'" % name).fetchone()[0]
                     rowid_map[row[0]] = dir_rowid
@@ -208,7 +210,7 @@ class DirectoryContent(object):
             raise
         else:
             self._db.commit()
-        
+
     def import_from_parallel_parsing(self, directory, verbose=None):
         self.read_local_path(verbose=verbose, files_and_root_only=True)
         for sqlite in os.listdir(directory):
@@ -220,7 +222,7 @@ class DirectoryContent(object):
                 print >> verbose, 'Import %s from %s' % (name, sqlite)
                 verbose.flush()
             self._import_db(name, sqlite, verbose=verbose)
-    
+
     @staticmethod
     def _sql_where(is_dir=None, in_dir=None):
         where = []
@@ -232,28 +234,28 @@ class DirectoryContent(object):
             return ' WHERE ' + ' AND '.join(where)
         else:
             return ''
-    
+
     def paths_count(self, in_dir=None, is_dir=None):
         sql = 'SELECT COUNT(*) FROM paths%s' % self._sql_where(is_dir=is_dir, in_dir=in_dir)
         r = self._db.execute(sql).fetchone()[0]
         if r is None:
             return 0
         return r
-    
+
     def size_sum(self, in_dir=None, is_dir=False):
         r = self._db.execute('SELECT SUM(st_size) FROM paths%s' % self._sql_where(is_dir=is_dir, in_dir=in_dir)).fetchone()[0]
         if r is None:
             return 0
         return r
-    
+
     def size_sum_by_month(self, in_dir=None, is_dir=None):
         sql = "SELECT strftime('%%Y-%%m', st_mtime, 'unixepoch') as month, SUM(st_size) FROM paths%s GROUP BY month ORDER BY month" % self._sql_where(is_dir=is_dir, in_dir=in_dir)
         return self._db.execute(sql).fetchall()
-    
+
     def size_sum_by_uid(self, in_dir=None, is_dir=None):
         sql = "SELECT st_uid as month, SUM(st_size) FROM paths%s GROUP BY st_uid" % self._sql_where(is_dir=is_dir, in_dir=in_dir)
         return self._db.execute(sql).fetchall()
-    
+
 
     #def differences(self, other,
                     #time_delta=0, reverse=False, verbose=None):

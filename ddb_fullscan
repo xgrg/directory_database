@@ -8,19 +8,21 @@ import argparse
 
 from directory_database import DirectoryContent
 
-wd = '/media/Temporary'
-parser = argparse.ArgumentParser(description='Put all of %s into databases'%wd)
+parser = argparse.ArgumentParser(description='Put all of that directory into databases')
+parser.add_argument(dest='target', help='Directory to scan')
 parser.add_argument(dest='directory', help='Directory where databases and log will be written')
 parser.add_argument('-m', '--merge', dest='merge', help='Merge databases created in parallel')
 options = parser.parse_args()
 
 directory = osp.normpath(osp.abspath(options.directory))
-
+wd = osp.normpath(osp.abspath(options.target))
+ddbdir = osp.split(__file__)[0]
 
 def parse_main_directory():
     popens = []
+    os.chdir(ddbdir)
     for dir in os.listdir(wd):
-        fp = osp.join(wd,dir)
+        fp = osp.join(wd, dir)
         if not osp.isdir(fp):
             continue
         log = open(osp.join(directory, dir + '.log'),'w')
@@ -47,4 +49,4 @@ def merge_databases():
 if options.merge:
     merge_databases()
 else:
-    parse_neurospin_cati()
+    parse_main_directory()
